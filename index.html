@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Voronoi Diagram</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+  <div class="flex flex-col min-h-screen">
+    <nav class="fixed z-50 h-[82px] w-full items-center px-12 flex justify-between bg-[#001a4c]">
+      <div>
+        <h1 class="font-nonSerif font-semibold text-3xl text-[#ffc000]">Tugas Pemrograman 1</h1>
+      </div>
+      <div>
+        <p class="font-nonSerif font-semibold text-[16px] text-white">Kelompok 11</p>
+      </div>
+    </nav>
+
+    <div class="h-full px-24 flex-grow my-20">
+      <div class="flex flex-col gap-4 justify-center items-center mt-10">
+        <h1 class="text-[52px] font-semibold">Voronoi Fortune Algorithm</h1>
+        <div class="h-[60px]">
+          <h1 id="typewriter" class="text-[32px]  font-semibold"></h1>
+          
+        </div>
+        <canvas id="voronoiCanvas" width="800" height="600" class="border border-gray-300"></canvas>
+      </div>
+      <div class="flex justify-center gap-4  mt-6">
+        <input type="file" id="fileInput" class="bg-gray-200 text-black p-2 rounded" accept=".txt" />
+        <button onclick="clearCanvas()" class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2">Clear Canvas</button>
+      </div> 
+    </div>
+  </div>
+
+  <script>
+    const words = ["Pikatan Arya Bramajati", "Arvin", "Venedict Chen"];
+    let i = 0;
+    let j = 0;
+    let currentWord = words[i];
+    let isDeleting = false;
+
+    function type() {
+      if (isDeleting) {
+        document.getElementById("typewriter").textContent = currentWord.substring(0, j - 1);
+        j--;
+        if (j == 0) {
+          isDeleting = false;
+          i = (i + 1) % words.length;
+          currentWord = words[i];
+        }
+      } else {
+        document.getElementById("typewriter").textContent = currentWord.substring(0, j + 1);
+        j++;
+        if (j == currentWord.length) {
+          isDeleting = true;
+        }
+      }
+      setTimeout(type, 80);
+    }
+    type();
+  </script>
+
+  <script>
+    const canvas = document.getElementById('voronoiCanvas');
+    const ctx = canvas.getContext('2d');
+    let points = [];
+ 
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      points.push({ x, y });
+      
+      console.log("Point added by click:", { x, y });
+      
+      drawPoint(x, y);
+      drawVoronoi();
+    });
+  
+    document.getElementById('fileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const lines = e.target.result.split('\n');
+          points = lines
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(line => {
+              const [x, y] = line.split(' ').map(Number);
+              return { x, y };
+            });
+          
+          points.forEach(point => {
+            drawPoint(point.x, point.y);
+          });
+          drawVoronoi();
+        };
+        reader.readAsText(file);
+        event.target.value = ''; 
+      }
+    });
+  
+    function drawPoint(x, y) {
+      ctx.fillStyle = 'black';
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      points = [];
+    }
+  
+    function drawVoronoi() {
+     
+    }
+  </script>
+  
+</body>   
+
+</html>
