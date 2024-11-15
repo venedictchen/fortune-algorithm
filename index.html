@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <title>Voronoi Diagram</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="voronoi.js"></script>
   </head>
-
   <body>
     <div class="flex flex-col min-h-screen">
       <nav
@@ -26,9 +26,9 @@
       <div class="h-full px-24 flex-grow my-20">
         <div class="flex flex-col gap-4 justify-center items-center mt-10">
           <h1 class="text-[52px] font-semibold">Voronoi Fortune Algorithm</h1>
-          <div class="h-[60px]">
-            <h1 id="typewriter" class="text-[32px] font-semibold"></h1>
-          </div>
+          <p id="currentMode" class="text-xl text-gray-700">
+            Current Mode: Input Mode
+          </p>
           <canvas
             id="voronoiCanvas"
             width="800"
@@ -49,54 +49,53 @@
           >
             Clear Canvas
           </button>
+          <button
+            id="inputModeBtn"
+            onclick="setMode('input')"
+            class="bg-green-500 text-white px-4 py-2 rounded"
+          >
+            Input Mode
+          </button>
+          <button
+            id="deleteModeBtn"
+            onclick="setMode('delete')"
+            class="bg-red-500 text-white px-4 py-2 rounded"
+          >
+            Delete Mode
+          </button>
         </div>
       </div>
     </div>
 
     <script>
-      const words = ["Pikatan Arya Bramajati", "Arvin", "Venedict Chen"];
-      let i = 0;
-      let j = 0;
-      let currentWord = words[i];
-      let isDeleting = false;
-
-      function type() {
-        if (isDeleting) {
-          document.getElementById("typewriter").textContent =
-            currentWord.substring(0, j - 1);
-          j--;
-          if (j == 0) {
-            isDeleting = false;
-            i = (i + 1) % words.length;
-            currentWord = words[i];
-          }
-        } else {
-          document.getElementById("typewriter").textContent =
-            currentWord.substring(0, j + 1);
-          j++;
-          if (j == currentWord.length) {
-            isDeleting = true;
-          }
-        }
-        setTimeout(type, 80);
-      }
-      type();
-    </script>
-
-    <script>
       const canvas = document.getElementById("voronoiCanvas");
       const ctx = canvas.getContext("2d");
       let points = [];
+      let draggedPoint = null;
+      let currentMode = "input";
+
+      let mouseX = 0;
+      let mouseY = 0;
 
       canvas.addEventListener("click", (e) => {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        points.push({ x, y });
+        const y = rect.bottom - e.clientY;
 
-        console.log("Point added by click:", { x, y });
+        if (currentMode === "input") {
+          // console.log(x, y);
+          points.push({ x, y });
+        } else if (currentMode === "delete") {
+          const index = points.findIndex((point) => {
+            const distance = Math.hypot(point.x - x, point.y - y);
+            return distance < 10;
+          });
+          
+          if (index !== -1) {
+            points.splice(index, 1);
+          }
+        }
 
-        drawPoint(x, y);
         drawVoronoi();
       });
 
@@ -127,10 +126,28 @@
         });
 
       function drawPoint(x, y) {
+        const rect = canvas.getBoundingClientRect();
+        
         ctx.fillStyle = "black";
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.arc(x, rect.height - y, 5, 0, 2 * Math.PI);
         ctx.fill();
+      }
+      
+      function drawLine(x1, y1, x2, y2, color = "black") {
+        const rect = canvas.getBoundingClientRect();
+
+        y1 = rect.height - y1;
+        y2 = rect.height - y2;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); 
+        ctx.lineTo(x2, y2); 
+        ctx.stroke(); 
+
+        // console.log("Draw on", x1, y1, x2, y2);
       }
 
       function clearCanvas() {
@@ -138,7 +155,48 @@
         points = [];
       }
 
-      function drawVoronoi() {}
+      function drawVoronoi() {
+        if (!Module) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        
+        const rect = canvas.getBoundingClientRect();
+        
+        const pointsData = points.map((p) => [p.x, p.y]);
+        for (let i=0; i<pointsData.length; i++) {
+          drawPoint(pointsData[i][0], pointsData[i][1])
+        }
+        const inputPtr = Module._malloc(pointsData.length * 2 * 8);
+        Module.HEAPF64.set(new Float64Array(pointsData.flat()), inputPtr / 8);
+        
+        const length = Module._get_vor_size(inputPtr, pointsData.length);
+        const outputPtr = Module._malloc(length * 8);
+        const result = Module._vor(inputPtr, pointsData.length, outputPtr);
+
+        // Extract and log the output points
+        const outputArray = new Float64Array(
+          Module.HEAPF64.buffer,
+          outputPtr,
+          length
+        );
+
+        // console.log("Voronoi diagram output:", outputArray);
+
+        const resultPairs = [];
+        for (let i = 0; i < outputArray.length; i += 2) {
+          const clientX1 = outputArray[i];
+          const clientY1 = outputArray[i+1];
+          resultPairs.push([clientX1, clientY1]);
+        }
+        for (let i = 0; i < resultPairs.length/2; i++) {
+          drawLine(resultPairs[i][0], resultPairs[i][1], resultPairs[i+resultPairs.length/2][0], resultPairs[i+resultPairs.length/2][1]);
+        }
+        console.log('Output Pairs:', resultPairs);
+
+        Module._free(inputPtr);
+        Module._free(outputPtr);
+      }
     </script>
   </body>
 </html>

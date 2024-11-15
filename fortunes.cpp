@@ -16,7 +16,7 @@ typedef pair<double, double> pdd;
 const double EPS = 1e-9;
 int dcmp(double x) { return x < -EPS ? -1 : x > EPS ? 1
 													: 0; }
-static double dx = 0, dy = 0, scale = 1e-8;
+static double dx = 0, dy = 0, scale = 1e-6;
 vector<pdd> input;
 vector<pdd> vertex;
 vector<pii> edge;
@@ -194,6 +194,7 @@ public:
 			}
 			cur = cur->link[x > right];
 		}
+		return cur;
 	}
 };
 using BeachNode = Beachline::node;
@@ -549,12 +550,29 @@ extern "C"
 			input, vertex, edge, area);
 	}
 
+	int get_vor_size(double *inputPtr, int inputLen) {
+		vector<pdd> input;
+		cout << "size is: " << inputLen << "\n";
+		for (int i = 0; i < inputLen; i++)
+		{
+			input.emplace_back(inputPtr[2*i], inputPtr[2*i+1]);
+			cout << inputPtr[2*i] << " " << inputPtr[2*i+1] << " ==\n";
+		}
+
+		// Call the calculateVoronoi function
+		auto result = calcvor(input);
+
+		return (result.first.size() + result.second.size()) * 2;
+	}
+
 	int vor(double *inputPtr, int inputLen, double *outputPtr)
 	{
 		vector<pdd> input;
-		for (int i = 0; i < inputLen; i += 2)
+		cout << "size is: " << inputLen << "\n";
+		for (int i = 0; i < inputLen; i++)
 		{
-			input.emplace_back(inputPtr[i], inputPtr[i + 1]);
+			input.emplace_back(inputPtr[2*i], inputPtr[2*i+1]);
+			cout << inputPtr[2*i] << " " << inputPtr[2*i+1] << " ==\n";
 		}
 
 		// Call the calculateVoronoi function
@@ -574,6 +592,12 @@ extern "C"
 			outputPtr[index++] = p.first;
 			outputPtr[index++] = p.second;
 		}
+
+		// assert(result.first.size() == result.second.size());
+
+		// for (int i=0; i<result.first.size(); i++) {
+		// 	cout << result.first[i].first << "," << result.first[i].second << " = " << result.second[i].first << "," << result.second[i].second << "\n";
+		// }
 
 		// return the length of the output array
 		return index;
@@ -600,20 +624,27 @@ extern "C"
 	}
 }
 
-int main()
-{
-	vector<pdd> input;
-	input.push_back(pdd(-162, 73));
-	input.push_back(pdd(126, -80));
+// int main() {
+// 	int n;
+// 	cin >> n;
 
-	auto [us, vs] = calcvor(input);
+// 	vector<pdd> input;
+// 	for (int i=0; i<n; i++) {
+// 		int x, y;
+// 		cin >> x >> y;
 
-	Point points[] = {{0, 3}, {1, 1}, {2, 2}, {4, 4}, {0, 0}, {1, 2}, {3, 1}, {3, 3}};
-	int n = sizeof(points) / sizeof(points[0]);
-	vector<pdd> hull = convexHull(points, n);
-	for (auto p : hull)
-	{
-		cout << "(" << p.first << ", " << p.second << ")" << endl;
-	}
-	return 0;
-}
+// 		input.push_back(pdd(x, y));
+// 	}
+	
+// 	auto [us, vs] = calcvor(input);
+
+// 	cout << "point:\n";
+// 	for (auto p : us) {
+// 		cout << fixed << p.first << " , " << p.second << "\n";
+// 	}
+// 	cout << "edge:\n";
+// 	for (auto p : vs) {
+// 		cout << fixed << p.first << " , " << p.second << "\n";
+// 	}
+// 	return 0;
+// }
