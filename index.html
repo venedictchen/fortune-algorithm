@@ -90,8 +90,7 @@
     <script>
       const canvas = document.getElementById("voronoiCanvas");
       const ctx = canvas.getContext("2d");
-      import * as Module from "./voronoi.js";
-      
+
       let points = [];
       let lastClickedPoint = null;
       let doubleClickTimeout = null;
@@ -146,7 +145,7 @@
           animationRunning = false;
         }
       };
-      
+
 
       // const speedUpAnimation = () => {
       //   if (animationSpeed < maxSpeed) {
