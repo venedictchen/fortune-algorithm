@@ -276,6 +276,7 @@ struct AVLTree
 		if(height == 0)
 		{
 			return this;
+			return this;
 		}
 		else
 		{
