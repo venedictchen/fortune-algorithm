@@ -199,7 +199,7 @@
           }
         } else {
           console.log(mouseX, mouseY);
-          points.push({ x: mouseX, y: mouseY + Math.random() * 1e-5 });
+          points.push({ x: mouseX, y: mouseY + Math.floor(Math.random() * 10000) * 1e-5 });
           console.log(points);
         }
 
@@ -210,7 +210,7 @@
         if (dragging && draggedPoint) {
           const rect = canvas.getBoundingClientRect();
           draggedPoint.x = e.clientX - rect.left;
-          draggedPoint.y = rect.bottom - e.clientY + Math.random() * 1e-5;
+          draggedPoint.y = rect.bottom - e.clientY + Math.floor(Math.random() * 10000) * 1e-5;
           setTimeout(() => {
             drawVoronoi();
           }, 100);
@@ -234,7 +234,7 @@
                 .map((line) => line.trim())
                 .filter((line) => line.length > 0)
                 .map((line) => {
-                  const [x, y] = line.split(" ").map(val => Number(val) + Math.random() * 1e-5);
+                  const [x, y] = line.split(" ").map(val => Number(val) + Math.floor(Math.random() * 10000) * 1e-5);
                   return { x, y };
                 });
 
