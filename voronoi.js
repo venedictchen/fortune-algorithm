@@ -1376,8 +1376,7 @@ var wasmImports = {
 };
 var wasmExports = createWasm();
 var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors', 0);
-var _get_vor_size = Module['_get_vor_size'] = createExportWrapper('get_vor_size', 2);
-var _vor = Module['_vor'] = createExportWrapper('vor', 3);
+var _generate_voronoi_and_delaunay = Module['_generate_voronoi_and_delaunay'] = createExportWrapper('generate_voronoi_and_delaunay', 7);
 var _fflush = createExportWrapper('fflush', 1);
 var _strerror = createExportWrapper('strerror', 1);
 var _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
