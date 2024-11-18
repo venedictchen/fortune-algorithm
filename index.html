@@ -26,6 +26,10 @@
       <div class="h-full px-24 flex-grow my-20">
         <div class="flex flex-col gap-4 justify-center items-center mt-10">
           <h1 class="text-[52px] font-semibold">Voronoi Fortune Algorithm</h1>
+          <div class="h-[60px]">
+            <h1 id="typewriter" class="text-[32px] font-semibold"></h1>
+          </div>
+  
           <canvas
             id="voronoiCanvas"
             width="800"
@@ -46,46 +50,40 @@
           >
             Clear Canvas
           </button>
-          <button
-            onclick="handleAnimation()"
-            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
-          >
-            Play
-          </button>
-          <!-- <button
-            onclick="speedUpAnimation()"
-            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
-          >
-            Speed Up
-          </button>
-          <button
-            onclick="slowDownAnimation()"
-            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
-          >
-            Slow Down
-          </button> -->
-          <div
-            id="pointInputModal"
-            class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
-          >
-            <div class="bg-white p-6 rounded-lg w-96">
-              <h2 class="text-xl font-semibold mb-4">
-                Please Input Points min 2 first!
-              </h2>
-
-              <div class="flex justify-end mt-4 gap-2">
-                <button
-                  onclick="closeModal()"
-                  class="bg-gray-300 px-4 py-2 rounded"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+        
           </div>
         </div>
       </div>
     </div>
+
+  <script>
+    const words = ["Pikatan Arya Bramajati", "Arvin", "Venedict Chen"];
+    let i = 0;
+    let j = 0;
+    let currentWord = words[i];
+    let isDeleting = false;
+
+    function type() {
+      if (isDeleting) {
+        document.getElementById("typewriter").textContent = currentWord.substring(0, j - 1);
+        j--;
+        if (j === 0) {
+          isDeleting = false;
+          i = (i + 1) % words.length;
+          currentWord = words[i];
+        }
+      } else {
+        document.getElementById("typewriter").textContent = currentWord.substring(0, j + 1);
+        j++;
+        if (j === currentWord.length) {
+          isDeleting = true;
+        }
+      }
+      setTimeout(type, 80);
+    }
+    type();
+  </script>
+
 
     <script>
       const canvas = document.getElementById("voronoiCanvas");
@@ -98,82 +96,11 @@
       let mouseY = 0;
       let dragging = false;
       let draggedPoint = null;
-      let animationSpeed = 0.6;
-      let minSpeed = 0.5;
-      let maxSpeed = 5;
 
       const DOUBLE_CLICK_TIME = 300;
 
-      let sweepLineY = 0;
-      let animationRunning = false;
-
-      const showModal = () => {
-        const modal = document.getElementById("pointInputModal");
-        modal.classList.remove("hidden");
-      };
-
-      const closeModal = () => {
-        const modal = document.getElementById("pointInputModal");
-        modal.classList.add("hidden");
-      };
-
-      const drawSweepLine = (y) => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        points.forEach((point) => {
-          drawPoint(point.x, point.y);
-        });
-
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      };
-
-      const animateSweepLine = () => {
-        if (!animationRunning) return;
-
-        drawSweepLine(sweepLineY);
-
-        sweepLineY += animationSpeed;
-
-        if (sweepLineY <= canvas.height) {
-          requestAnimationFrame(animateSweepLine);
-        } else {
-          animationRunning = false;
-        }
-      };
-
-
-      // const speedUpAnimation = () => {
-      //   if (animationSpeed < maxSpeed) {
-      //     animationSpeed += 0.2;
-      //   }
-      // };
-
-      // const slowDownAnimation = () => {
-      //   if (animationSpeed > minSpeed) {
-      //     animationSpeed -= 0.2;
-      //   }
-      // };
-
-      const handleAnimation = () => {
-        if (points.length === 0) {
-          showModal();
-          return;
-        }
-        if (!animationRunning) {
-          sweepLineY = 0;
-          animationRunning = true;
-          animateSweepLine();
-        }
-      };
-
       canvas.addEventListener("mousedown", (e) => {
         const rect = canvas.getBoundingClientRect();
-        console.log(e.clientX, e.clientY);
         mouseX = e.clientX - rect.left;
         mouseY = rect.bottom - e.clientY;
 
@@ -198,7 +125,7 @@
             draggedPoint = points[clickedPointIndex];
           }
         } else {
-          console.log(mouseX, mouseY);
+          // console.log(mouseX, mouseY);
           points.push({ x: mouseX, y: mouseY + Math.floor(Math.random() * 10000) * 1e-5 });
           console.log(points);
         }
@@ -237,6 +164,7 @@
                   const [x, y] = line.split(" ").map(val => Number(val) + Math.floor(Math.random() * 10000) * 1e-5);
                   return { x, y };
                 });
+                console.log(points)
 
                 drawVoronoi();
             };
@@ -249,7 +177,7 @@
         const rect = canvas.getBoundingClientRect();
         ctx.fillStyle = "black";
         ctx.beginPath();
-        ctx.arc(x, rect.height - y, 5, 0, 2 * Math.PI);
+        ctx.arc(x, rect.height - y, 4, 0, 2 * Math.PI);
         ctx.fill();
       }
 
