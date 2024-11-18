@@ -6,614 +6,568 @@
 #include <cstdio>
 #include <stack>
 #include <iostream>
-// #include <emscripten.h>
+#include <iomanip>
 
 using namespace std;
 
-typedef pair<int, int> pii;
-typedef pair<double, double> pdd;
+#define mp make_pair
+#define fr first
+#define sc second
 
-const double EPS = 1e-9;
-int dcmp(double x) { return x < -EPS ? -1 : x > EPS ? 1
-													: 0; }
-static double dx = 0, dy = 0, scale = 1e-8;
-vector<pdd> input;
-vector<pdd> vertex;
-vector<pii> edge;
-vector<pii> area;
+const int MXN = 1e6; // Max number of input points
+const long double MXXY = 1e6; // Max possible point coordinates
+const long double EPS = 1e-9; // Floating point tolerance
+const long double INF = 1e18; // Infinity
 
-double operator/(pdd a, pdd b) { return a.first * b.second - a.second * b.first; }
-pdd operator*(double b, pdd a) { return pdd(b * a.first, b * a.second); }
-pdd operator+(pdd a, pdd b) { return pdd(a.first + b.first, a.second + b.second); }
-pdd operator-(pdd a, pdd b) { return pdd(a.first - b.first, a.second - b.second); }
-
-double sq(double x) { return x * x; }
-double size(pdd p) { return hypot(p.first, p.second); }
-double sz2(pdd p) { return sq(p.first) + sq(p.second); }
-pdd r90(pdd p) { return pdd(-p.second, p.first); }
-
-pdd line_intersect(pdd a, pdd b, pdd u, pdd v) { return u + (((a - u) / b) / (v / b)) * v; }
-pdd get_circumcenter(pdd p0, pdd p1, pdd p2)
-{
-	return line_intersect(0.5 * (p0 + p1), r90(p0 - p1), 0.5 * (p1 + p2), r90(p1 - p2));
-}
-
-// https://www.youtube.com/watch?v=h_vvP4ah6Ck
-double parabola_intersect(pdd left, pdd right, double sweepline)
-{
-	/*
-	if(dcmp(left.second - right.second) == 0) return (left.first + right.first) / 2.0; /*/
-	auto f2 = [](pdd left, pdd right, double sweepline)
-	{
-		int sign = left.first < right.first ? 1 : -1;
-		pdd m = 0.5 * (left + right);
-		pdd v = line_intersect(m, r90(right - left), pdd(0, sweepline), pdd(1, 0));
-		pdd w = line_intersect(m, r90(left - v), v, left - v);
-		double l1 = size(v - w), l2 = sqrt(sq(sweepline - m.second) - sz2(m - w)), l3 = size(left - v);
-		return v.first + (m.first - v.first) * l3 / (l1 + sign * l2);
-	};
-	if (fabs(left.second - right.second) < fabs(left.first - right.first) * EPS)
-		return f2(left, right, sweepline); // */
-	int sign = left.second < right.second ? -1 : 1;
-	pdd v = line_intersect(left, right - left, pdd(0, sweepline), pdd(1, 0));
-	double d1 = sz2(0.5 * (left + right) - v), d2 = sz2(0.5 * (left - right));
-	return v.first + sign * sqrt(max(0.0, d1 - d2));
-}
-
-class Beachline
-{
-public:
-	struct node
-	{
-		node() {}
-		node(pdd point, int idx) : point(point), idx(idx), end(0),
-								   link{0, 0}, par(0), prv(0), nxt(0) {}
-		pdd point;
-		int idx;
-		int end;
-		node *link[2], *par, *prv, *nxt;
-	};
-	node *root;
-	double sweepline;
-
-	Beachline() : sweepline(-1e20), root(NULL) {}
-	inline int dir(node *x) { return x->par->link[0] != x; }
-
-	//     p        n          p            n
-	//    / \      / \        / \          / \
-		//   n   d => a   p   or a   n   =>   p   d
-	//  / \          / \        / \      / \
-		// a   b        b   d      c   d    a   c
-
-	void rotate(node *n)
-	{
-		node *p = n->par;
-		int d = dir(n);
-		p->link[d] = n->link[!d];
-		if (n->link[!d])
-			n->link[!d]->par = p;
-		n->par = p->par;
-		if (p->par)
-			p->par->link[dir(p)] = n;
-		n->link[!d] = p;
-		p->par = n;
-	}
-
-	void splay(node *x, node *f = NULL)
-	{
-		while (x->par != f)
-		{
-			if (x->par->par == f)
-				;
-			else if (dir(x) == dir(x->par))
-				rotate(x->par);
-			else
-				rotate(x);
-			rotate(x);
-		}
-		if (f == NULL)
-			root = x;
-	}
-
-	void insert(node *n, node *p, int d)
-	{
-		splay(p);
-		node *c = p->link[d];
-		n->link[d] = c;
-		if (c)
-			c->par = n;
-		p->link[d] = n;
-		n->par = p;
-
-		node *prv = !d ? p->prv : p, *nxt = !d ? p : p->nxt;
-		n->prv = prv;
-		if (prv)
-			prv->nxt = n;
-		n->nxt = nxt;
-		if (nxt)
-			nxt->prv = n;
-	}
-
-	void erase(node *n)
-	{
-		node *prv = n->prv, *nxt = n->nxt;
-		if (!prv && !nxt)
-		{
-			if (n == root)
-				root = NULL;
-			return;
-		}
-		n->prv = NULL;
-		if (prv)
-			prv->nxt = nxt;
-		n->nxt = NULL;
-		if (nxt)
-			nxt->prv = prv;
-		splay(n);
-		if (!nxt)
-		{
-			root->par = NULL;
-			n->link[0] = NULL;
-			root = prv;
-		}
-		else
-		{
-			splay(nxt, n);
-			node *c = n->link[0];
-			nxt->link[0] = c;
-			c->par = nxt;
-			n->link[0] = NULL;
-			n->link[1] = NULL;
-			nxt->par = NULL;
-			root = nxt;
-		}
-	}
-	bool get_event(node *cur, double &next_sweep)
-	{
-		if (!cur->prv || !cur->nxt)
-			return false;
-		pdd u = r90(cur->point - cur->prv->point);
-		pdd v = r90(cur->nxt->point - cur->point);
-		if (dcmp(u / v) != 1)
-			return false;
-		pdd p = get_circumcenter(cur->point, cur->prv->point, cur->nxt->point);
-		next_sweep = p.second + size(p - cur->point);
-		return true;
-	}
-	node *find_beachline(double x)
-	{
-		node *cur = root;
-		while (cur)
-		{
-			double left = cur->prv ? parabola_intersect(cur->prv->point, cur->point, sweepline) : -1e30;
-			double right = cur->nxt ? parabola_intersect(cur->point, cur->nxt->point, sweepline) : 1e30;
-			if (left <= x && x <= right)
-			{
-				splay(cur);
-				return cur;
-			}
-			cur = cur->link[x > right];
-		}
-	}
-};
-using BeachNode = Beachline::node;
-
-static BeachNode *arr;
-static int sz;
-static BeachNode *new_node(pdd point, int idx)
-{
-	arr[sz] = BeachNode(point, idx);
-	return arr + (sz++);
-}
-
-struct event
-{
-	event(double sweep, int idx) : type(0), sweep(sweep), idx(idx) {}
-	event(double sweep, BeachNode *cur) : type(1), sweep(sweep), prv(cur->prv->idx), cur(cur), nxt(cur->nxt->idx) {}
-	int type, idx, prv, nxt;
-	BeachNode *cur;
-	double sweep;
-	bool operator>(const event &l) const { return sweep > l.sweep; }
-};
-
-void VoronoiDiagram(vector<pdd> &input, vector<pdd> &vertex, vector<pii> &edge, vector<pii> &area)
-{
-	Beachline beachline = Beachline();
-	priority_queue<event, vector<event>, greater<event>> events;
-
-	auto add_edge = [&](int u, int v, int a, int b, BeachNode *c1, BeachNode *c2)
-	{
-		if (c1)
-			c1->end = edge.size() * 2;
-		if (c2)
-			c2->end = edge.size() * 2 + 1;
-		edge.emplace_back(u, v);
-		area.emplace_back(a, b);
-	};
-	auto write_edge = [&](int idx, int v)
-	{ idx % 2 == 0 ? edge[idx / 2].first = v : edge[idx / 2].second = v; };
-	auto add_event = [&](BeachNode *cur)
-	{ double nxt; if(beachline.get_event(cur, nxt)) events.emplace(nxt, cur); };
-
-	int n = input.size(), cnt = 0;
-	arr = new BeachNode[n * 4];
-	sz = 0;
-	sort(input.begin(), input.end(), [](const pdd &l, const pdd &r)
-		 { return l.second != r.second ? l.second < r.second : l.first < r.first; });
-
-	BeachNode *tmp = beachline.root = new_node(input[0], 0), *t2;
-	for (int i = 1; i < n; i++)
-	{
-		if (dcmp(input[i].second - input[0].second) == 0)
-		{
-			add_edge(-1, -1, i - 1, i, 0, tmp);
-			beachline.insert(t2 = new_node(input[i], i), tmp, 1);
-			tmp = t2;
-		}
-		else
-			events.emplace(input[i].second, i);
-	}
-	while (events.size())
-	{
-		event q = events.top();
-		events.pop();
-		BeachNode *prv, *cur, *nxt, *site;
-		int v = vertex.size(), idx = q.idx;
-		beachline.sweepline = q.sweep;
-		if (q.type == 0)
-		{
-			pdd point = input[idx];
-			cur = beachline.find_beachline(point.first);
-			beachline.insert(site = new_node(point, idx), cur, 0);
-			beachline.insert(prv = new_node(cur->point, cur->idx), site, 0);
-			add_edge(-1, -1, cur->idx, idx, site, prv);
-			add_event(prv);
-			add_event(cur);
-		}
-		else
-		{
-			cur = q.cur, prv = cur->prv, nxt = cur->nxt;
-			if (!prv || !nxt || prv->idx != q.prv || nxt->idx != q.nxt)
-				continue;
-			vertex.push_back(get_circumcenter(prv->point, nxt->point, cur->point));
-			write_edge(prv->end, v);
-			write_edge(cur->end, v);
-			add_edge(v, -1, prv->idx, nxt->idx, 0, prv);
-			beachline.erase(cur);
-			add_event(prv);
-			add_event(nxt);
-		}
-	}
-	delete arr;
-}
-
+// Point struct
 struct Point
 {
-	double x, y;
+	long double x, y;
+	
+	// Euclidean distance to (0)
+	inline long double dis2()
+	{
+		return x * x + y * y;
+	}
+	inline long double dis()
+	{
+		return sqrt(dis2());
+	}
+	
+	// Arithmetic operations for points
+	Point operator+(const Point &pt) const
+	{
+		return {x + pt.x, y + pt.y};
+	}
+	Point operator-(const Point &pt) const
+	{
+		return {x - pt.x, y - pt.y};
+	}
+	Point operator*(const long double &w) const
+	{
+		return {x * w, y * w};
+	}
+	Point operator/(const long double &w) const
+	{
+		return {x / w, y / w};
+	}
+	
+	// Compare points lexicographically
+	bool operator<(const Point &pt) const
+	{
+		return mp(x, y) < mp(pt.x, pt.y);
+    }
 };
 
-// A global point needed for  sorting points with reference
-// to  the first point Used in compare function of qsort()
-Point p0;
-
-// A utility function to find next to top in a stack
-Point nextToTop(stack<Point> &S)
+// Cross product of two points
+inline long double crossProduct(Point p1, Point p2)
 {
-	Point p = S.top();
-	S.pop();
-	Point res = S.top();
-	S.push(p);
-	return res;
+	return p1.x * p2.y - p1.y * p2.x;
 }
 
-// A utility function to swap two points
-void swap(Point &p1, Point &p2)
+// Check if three points are collinear
+inline bool collinear(Point p1, Point p2, Point p3)
 {
-	Point temp = p1;
-	p1 = p2;
-	p2 = temp;
+	return abs(crossProduct(p2 - p1, p3 - p2)) <= EPS;
 }
 
-// A utility function to return square of distance
-// between p1 and p2
-int distSq(Point p1, Point p2)
+// Center of a circle going through three points
+inline Point circumcenter(Point p1, Point p2, Point p3)
 {
-	return (p1.x - p2.x) * (p1.x - p2.x) +
-		   (p1.y - p2.y) * (p1.y - p2.y);
+	Point d1, d2;
+	d1 = p2 - p1;
+	d2 = p3 - p1;
+	
+	Point w, wRot;
+	w = d2 * d1.dis2() - d1 * d2.dis2();
+	wRot = {-w.y, w.x};
+	
+	long double denom = crossProduct(d2, d1) * 2;
+	return p1 + wRot / denom;
 }
 
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are collinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-int orientation(Point p, Point q, Point r)
+// Current y coordinate of sweep line (used in arc comparison)
+long double sweepY = MXXY;
+
+// Arc struct
+struct Arc
 {
-	int val = (q.y - p.y) * (r.x - q.x) -
-			  (q.x - p.x) * (r.y - q.y);
-
-	if (val == 0)
-		return 0;			  // collinear
-	return (val > 0) ? 1 : 2; // clock or counterclock wise
-}
-
-// A function used by library function qsort() to sort an array of
-// points with respect to the first point
-int compare(const void *vp1, const void *vp2)
-{
-	Point *p1 = (Point *)vp1;
-	Point *p2 = (Point *)vp2;
-
-	// Find orientation
-	int o = orientation(p0, *p1, *p2);
-	if (o == 0)
-		return (distSq(p0, *p2) >= distSq(p0, *p1)) ? -1 : 1;
-
-	return (o == 2) ? -1 : 1;
-}
-
-// Prints convex hull of a set of n points.
-vector<pdd> convexHull(Point points[], int n)
-{
-	// Find the bottommost point
-	int ymin = points[0].y, min = 0;
-	for (int i = 1; i < n; i++)
+	// Focus point of arc and the following arc (to the right) in the beach line
+	Point p = {INF, INF}, q = {INF, INF};
+	
+	// ID of point and ID of removal event
+	int id = -1, removalId = -1;
+	
+	// Source vertex of the line intersection of the two arcs from p and q
+	Point v = {INF, INF};
+	
+	// Get the intersection of the arc and the following arc for the current sweepY
+	inline long double getX(long double curSweepY) const
 	{
-		int y = points[i].y;
-
-		// Pick the bottom-most or choose the left
-		// most point in case of tie
-		if ((y < ymin) || (ymin == y &&
-						   points[i].x < points[min].x))
-			ymin = points[i].y, min = i;
+		if(q.x >= INF / 2)
+		{
+			return q.x;
+		}
+		
+		Point mid, d;
+		mid = (p + q) / 2;
+		d = mid - p;
+		
+		long double w = sqrt((p.y - curSweepY) * (q.y - curSweepY));
+		return mid.x + (w * d.dis() - (mid.y - curSweepY) * d.x) / d.y;
 	}
-
-	// Place the bottom-most point at first position
-	swap(points[0], points[min]);
-
-	// Sort n-1 points with respect to the first point.
-	// A point p1 comes before p2 in sorted output if p2
-	// has larger polar angle (in counterclockwise
-	// direction) than p1
-	p0 = points[0];
-	qsort(&points[1], n - 1, sizeof(Point), compare);
-
-	// If two or more points make same angle with p0,
-	// Remove all but the one that is farthest from p0
-	// Remember that, in above sorting, our criteria was
-	// to keep the farthest point at the end when more than
-	// one points have same angle.
-	int m = 1; // Initialize size of modified array
-	for (int i = 1; i < n; i++)
+	
+	inline Point getV(long double curSweepY) const
 	{
-		// Keep removing i while angle of i and i+1 is same
-		// with respect to p0
-		while (i < n - 1 && orientation(p0, points[i],
-										points[i + 1]) == 0)
-			i++;
-
-		points[m] = points[i];
-		m++; // Update size of modified array
+		Point ret;
+		ret.x = getX(curSweepY);
+		if(p.y > curSweepY)
+		{
+			ret.y = (ret.x * ret.x - 2 * p.x * ret.x + p.x * p.x + p.y * p.y - curSweepY * curSweepY) / (2 * (p.y - curSweepY));
+		}
+		else
+		{
+			ret.y = (ret.x * ret.x - 2 * q.x * ret.x + q.x * q.x + q.y * q.y - curSweepY * curSweepY) / (2 * (q.y - curSweepY));
+		}
+		return ret;
 	}
-
-	// If modified array of points has less than 3 points,
-	// convex hull is not possible
-	if (m < 3)
-		return {};
-
-	// Create an empty stack and push first three points
-	// to it.
-	stack<Point> S;
-	S.push(points[0]);
-	S.push(points[1]);
-	S.push(points[2]);
-
-	// Process remaining n-3 points
-	for (int i = 3; i < m; i++)
+	
+	// Initialize v (done at the time of each point or vertex event)
+	inline void initV()
 	{
-		// Keep removing top while the angle formed by
-		// points next-to-top, top, and points[i] makes
-		// a non-left turn
-		while (S.size() > 1 && orientation(nextToTop(S), S.top(), points[i]) != 2)
-			S.pop();
-		S.push(points[i]);
+		if(p.y >= MXXY || q.y >= MXXY)
+		{
+			v = {INF, INF};
+		}
+		else
+		{
+			v = getV(sweepY);
+		}
 	}
-
-	// Now stack has the output points, print contents of stack
-	vector<pdd> hull;
-	while (!S.empty())
+	
+	// Compare arcs by their intersection x coordinates to the adjacent arc
+	bool operator<(const Arc &arc) const
 	{
-		Point p = S.top();
-		hull.push_back({p.x, p.y});
-		S.pop();
+		return getX(sweepY - EPS) < arc.getX(sweepY - EPS);
+    }
+	
+	// Compare arc intersection x coordinate with arbitrary x coordinate
+	bool operator<(const long double &x) const
+	{
+		return getX(sweepY - EPS) < x;
+    }
+};
+
+// AVL tree struct
+struct AVLTree
+{
+	int height = 0; // Height of its subtree
+	int big = -1; // The child with the maximum height, -1 if it has no child
+	Arc arc; // Arc stored (each leaf stores an arc, each non-leaf stores minimum active arc in the subtree for binary search)
+	AVLTree *c[2]; // Children, 0 is left, 1 is right
+	AVLTree *par = 0; // Parent
+	
+	// Assign values from children's values
+	void assign()
+	{
+		height = max(c[0]->height, c[1]->height) + 1;
+		big = c[0]->height + 1 == height ? 0 : 1;
+		arc = min(c[0]->arc, c[1]->arc);
 	}
-	return hull;
+	
+	// Subtree rotation, right rotate if dir = 0, left rotate if dir = 1
+	void rot(int dir)
+	{
+		AVLTree *tmp = c[!dir];
+		
+		// Make a new node in the direction of the rotation
+		c[!dir] = new AVLTree;
+		c[!dir]->par = this;
+		
+		// Assign children to the new node
+		c[!dir]->c[dir] = c[dir]->c[!dir];
+		c[!dir]->c[dir]->par = c[!dir];
+		c[!dir]->c[!dir] = tmp;
+		tmp->par = c[!dir];
+		
+		c[!dir]->assign();
+		
+		// Finish the opposite direction
+		c[dir] = c[dir]->c[dir];
+		c[dir]->par = this;
+		
+		assign();
+	}
+	
+	// Check if it's unbalanced
+	void check()
+	{
+		assign();
+		
+		if(abs(c[0]->height - c[1]->height) > 1)
+		{
+			// Rotate big child if big's big child isn't in the same direction
+			if(c[big]->big != big)
+			{
+				c[big]->rot(!big);
+			}
+			
+			rot(big);
+		}
+	}
+	
+	// Initialize the AVL tree by making it a complete binary tree with two leaves that are inactive
+	// This eliminates any corner case in insertion
+	void init()
+	{
+		for(int ii = 0; ii < 2; ii++)
+		{
+			c[ii] = new AVLTree;
+			c[ii]->par = this;
+		}
+		
+		assign();
+	}
+	
+	// Insert a leaf with arc
+	// Returns the address of the new leaf
+	AVLTree* ins(Arc curArc)
+	{
+		// Get which target child to recurse into and change x accordingly
+		int e = curArc < c[1]->arc ? 0 : 1;
+		
+		// Insert new leaf if the target child is a leaf
+		AVLTree *ret;
+		if(c[e]->height == 0)
+		{
+			AVLTree *tmp = c[e];
+			int e2 = curArc < c[e]->arc ? 0 : 1;
+			
+			// Make a new node in place of the target child
+			c[e] = new AVLTree;
+			c[e]->par = this;
+			
+			// Assign the existing leaf as one child
+			c[e]->c[!e2] = tmp;
+			tmp->par = c[e];
+			
+			// Assign a new leaf as the other child
+			c[e]->c[e2] = new AVLTree;
+			c[e]->c[e2]->arc = curArc;
+			c[e]->c[e2]->par = c[e];
+			
+			c[e]->assign();
+			
+			ret = c[e]->c[e2];
+		}
+		else
+		{
+			ret = c[e]->ins(curArc);
+		}
+		
+		check();
+		
+		return ret;
+	}
+	
+	// Binary search on AVL tree to find the arc with the maximum intersection x coordinate smaller than an arbitrary x
+	AVLTree* binLift(long double x)
+	{
+		if(height == 0)
+		{
+			return this;
+		}
+		else
+		{
+			// Get which target child to recurse into
+			int e = c[1]->arc < x ? 1 : 0;
+			
+			return c[e]->binLift(x);
+		}
+	}
+	
+	AVLTree* begin()
+	{
+		if(height == 0)
+		{
+			return this;
+		}
+		else
+		{
+			int e = c[0]->arc.getX(sweepY - EPS) != INF ? 0 : 1;
+			return c[e]->begin();
+		}
+	}
+};
+
+// Get previous active leaf
+inline AVLTree* prv(AVLTree *it)
+{
+	// Iterate up to lowest relevant ancestor
+	while(true)
+	{
+		if(!it->par)
+		{
+			return 0;
+		}
+		
+		AVLTree *lastIt = it;
+		it = it->par;
+		if(it->c[0] != lastIt && it->c[0]->arc.getX(sweepY - EPS) != INF)
+		{
+			it = it->c[0];
+			break;
+		}
+	}
+	
+	// Iterate down to rightmost active leaf
+	while(it->height > 0)
+	{
+		int e = it->c[1]->arc.getX(sweepY - EPS) != INF ? 1 : 0;
+		it = it->c[e];
+	}
+	
+	return it;
+}
+
+// Get next active leaf
+inline AVLTree* nxt(AVLTree *it)
+{
+	// Iterate up to lowest relevant ancestor
+	while(true)
+	{
+		if(!it->par)
+		{
+			return 0;
+		}
+		
+		AVLTree *lastIt = it;
+		it = it->par;
+		if(it->c[1] != lastIt && it->c[1]->arc.getX(sweepY - EPS) != INF)
+		{
+			it = it->c[1];
+			break;
+		}
+	}
+	
+	// Iterate down to leftmost active leaf
+	while(it->height > 0)
+	{
+		int e = it->c[0]->arc.getX(sweepY - EPS) != INF ? 0 : 1;
+		it = it->c[e];
+	}
+	
+	return it;
+}
+
+// Relax ancestor values in AVL tree
+inline void relax(AVLTree *it)
+{
+	while(it->par)
+	{
+		it = it->par;
+		it->assign();
+	}
+}
+
+// Erase the leaf for some arc by making it inactive
+inline void ers(AVLTree *it)
+{
+	it->arc = {{INF, INF}, {INF, INF}, -1, -1};
+	relax(it);
+}
+
+// Input points
+Point pts[MXN + 69];
+vector<pair<Point, Point>> delaunay_edges, voronoi_edges;
+
+// Add Delaunay edge
+inline void addDelaunayEdge(int p1, int p2)
+{
+	if(p1 != -1 && p2 != -1)
+	{
+		// printf("%.5Lf %.5Lf %.5Lf %.5Lf\n", pts[p1].x, pts[p1].y, pts[p2].x, pts[p2].y);
+		delaunay_edges.emplace_back(pts[p1], pts[p2]);
+	}
+}
+
+// Add Voronoi edge
+inline void addVoronoiEdge(Point p1, Point p2)
+{
+	if(p1.x != INF && p2.x != INF)
+	{
+		// printf("%.5Lf %.5Lf %.5Lf %.5Lf\n", p1.x, p1.y, p2.x, p2.y);
+		voronoi_edges.emplace_back(p1, p2);
+	}
+}
+
+// Priority queue of events to handle both addition events and removal events
+priority_queue<pair<long double, pair<int, int>>> pq;
+vector<AVLTree*> removals;
+vector<bool> isValidRemoval;
+
+// Update removal events
+inline void updRemovals(AVLTree* it)
+{
+	if(it->arc.id == -1)
+	{
+		return;
+	}
+	
+	if(it->arc.removalId != -1)
+	{
+		isValidRemoval[it->arc.removalId] = false;
+	}
+	
+	AVLTree *it2 = prv(it);
+	if(collinear(it2->arc.p, it->arc.p, it->arc.q))
+	{
+		return;
+	}
+	
+	it->arc.removalId = removals.size();
+	Point mid = circumcenter(it2->arc.p, it->arc.p, it->arc.q);
+	long double nextY = mid.y - (mid - it->arc.p).dis();
+	if(nextY < sweepY + EPS && it2->arc.getX(nextY - EPS) + EPS > it->arc.getX(nextY - EPS))
+	{
+		pq.push({nextY, {1, it->arc.removalId}});
+	}
+	removals.push_back(it);
+	isValidRemoval.push_back(true);
 }
 
 extern "C"
 {
-	pair<vector<pdd>, vector<pdd>> display(
-		vector<pdd> input, vector<pdd> vertex, vector<pii> edge, vector<pii> area)
-	{
-		vector<pdd> us, vs;
+    void generate_voronoi_and_delaunay(int N, double *inputPtr, double *voronoiPtr, double *delaunayPtr, double *circlePtr, int *voronoiSize, int *delaunaySize)
+    {
+        for (int i = 1; i <= N; i++)
+        {
+            pts[i] = {inputPtr[2*(i-1)], inputPtr[2*(i-1) + 1]};
+        }
 
-		double sx = -dx - 1. / scale, ex = -dx + 1. / scale;
-		double sy = dy - 1. / scale, ey = dy + 1. / scale;
-		pdd box[] = {
-			pdd(sx, sy),
-			pdd(sx, ey),
-			pdd(ex, ey),
-			pdd(ex, sy),
-		};
-		pdd dir[] = {
-			pdd(0, 1),
-			pdd(1, 0),
-			pdd(0, -1),
-			pdd(-1, 0)};
-		auto f = [](pdd a, pdd b, pdd u, pdd v)
+        voronoi_edges.clear();
+        delaunay_edges.clear();
+		
+		// Add all point events
+		for(int i = 1; i <= N; i++)
 		{
-			if (fabs(v / b) < 1e-9)
-				return 1e18;
-			return (((a - u) / b) / (v / b));
-		};
-		for (int i = 0; i < edge.size(); i++)
+			pq.push({pts[i].y, {0, i}});
+		}
+		
+		// Initialize AVL tree
+		AVLTree avl;
+		avl.init();
+		avl.ins({{-MXXY, MXXY + 1}, {MXXY, MXXY}, -1, -1});
+		avl.ins({{MXXY, MXXY}, {INF / 2, INF / 2}, -1, -1});
+		
+		// Process events
+		long double maxRadius = -INF;
+		Point circlePt;
+		while(!pq.empty())
 		{
-			pdd d = r90(input[area[i].second] - input[area[i].first]), u, v;
-			pdd m = 0.5 * (input[area[i].second] + input[area[i].first]);
-			auto g = [&](pdd x)
-			{ return sx - 1e-9 <= x.first && x.first <= ex + 1e-9 &&
-					 sy - 1e-9 <= x.second && x.second <= ey + 1e-9; };
-			if (edge[i] == pii(-1, -1))
+			int type, k;
+			sweepY = pq.top().fr;
+			type = pq.top().sc.fr;
+			k = pq.top().sc.sc;
+			pq.pop();
+			
+			if(type == 0)
 			{
-				double mn = 1e18, mx = -1e18;
-				for (int i = 0; i < 4; i++)
-				{
-					double x = f(box[i], dir[i], m, d);
-					if (x == 1e18)
-						continue;
-					pdd tp = m + x * d;
-					if (!g(tp))
-						continue;
-					mn = std::min(mn, x);
-					mx = std::max(mx, x);
-				}
-				if (mn != 1e18)
-					u = m + mn * d, v = m + mx * d;
-				else
-					continue;
-			}
-			else if (edge[i].first == -1)
-			{
-				v = vertex[edge[i].second];
-				double mn = 1e18, mx = -1e18;
-				if (g(v))
-					mx = 0;
-				for (int i = 0; i < 4; i++)
-				{
-					double x = f(box[i], dir[i], v, d);
-					if (x == 1e18)
-						continue;
-					pdd tp = v + x * d;
-					if (x >= 0 || !g(tp))
-						continue;
-					mn = std::min(mn, x);
-					mx = std::max(mx, x);
-				}
-				if (mn == 1e18)
-					continue;
-				u = v + mn * d;
-				v = v + mx * d;
-			}
-			else if (edge[i].second == -1)
-			{
-				u = vertex[edge[i].first];
-				double mn = 1e18, mx = -1e18;
-				if (g(u))
-					mn = 0;
-				for (int i = 0; i < 4; i++)
-				{
-					double x = f(box[i], dir[i], u, d);
-					if (x == 1e18)
-						continue;
-					pdd tp = u + x * d;
-					if (x <= 0 || !g(tp))
-						continue;
-					mn = std::min(mn, x);
-					mx = std::max(mx, x);
-				}
-				if (mx == -1e18)
-					continue;
-				v = u + mx * d;
-				u = u + mn * d;
+				AVLTree *it = nxt(avl.binLift(pts[k].x));
+				addDelaunayEdge(it->arc.id, k);
+				
+				Arc newArc = {it->arc.p, pts[k], it->arc.id};
+				newArc.initV();
+				AVLTree *it2 = avl.ins(newArc);
+				
+				newArc = {pts[k], it->arc.p, k};
+				newArc.initV();
+				AVLTree *it3 = avl.ins(newArc);
+				
+				updRemovals(it);
+				updRemovals(it2);
+				updRemovals(it3);
 			}
 			else
 			{
-				u = vertex[edge[i].first];
-				v = vertex[edge[i].second];
+				if(!isValidRemoval[k])
+				{
+					continue;
+				}
+				
+				AVLTree *it = removals[k];
+				AVLTree *it2 = prv(it);
+				AVLTree *it3 = nxt(it);
+				addDelaunayEdge(it2->arc.id, it3->arc.id);
+				
+				Point v = it->arc.getV(sweepY);
+				addVoronoiEdge(it2->arc.v, v);
+				addVoronoiEdge(it->arc.v, v);
+				
+				if(it->arc.id != -1 && it2->arc.id != -1 && it3->arc.id != -1)
+				{
+					long double radius = v.y - sweepY;
+					if(radius > maxRadius)
+					{
+						maxRadius = radius;
+						circlePt = v;
+					}
+				}
+				
+				ers(it);
+				it2->arc.q = it3->arc.p;
+				it2->arc.initV();
+				relax(it2);
+				
+				updRemovals(it2);
+				updRemovals(it3);
 			}
-
-			us.push_back(u);
-			vs.push_back(v);
 		}
-
-		return make_pair(us, vs);
-	}
-
-	pair<vector<pdd>, vector<pdd>> calcvor(vector<pdd> input)
-	{
-		vector<pdd> vertex;
-		vector<pii> edge;
-		vector<pii> area;
-		VoronoiDiagram(input, vertex, edge, area);
-		return display(
-			input, vertex, edge, area);
-	}
-
-	int vor(double *inputPtr, int inputLen, double *outputPtr)
-	{
-		vector<pdd> input;
-		for (int i = 0; i < inputLen; i += 2)
+		
+		// Add all unfinished half lines
+		for(AVLTree *it = avl.begin(); it; it = nxt(it))
 		{
-			input.emplace_back(inputPtr[i], inputPtr[i + 1]);
+			Point v = it->arc.getV(-MXXY);
+			addVoronoiEdge(it->arc.v, v);
 		}
-
-		// Call the calculateVoronoi function
-		auto result = calcvor(input);
+		
+		// Print max radius circle (x, y, r)
+		{
+			int index = 0;
+			if(maxRadius != -INF)
+			{
+				circlePtr[index++] = circlePt.x;
+				circlePtr[index++] = circlePt.y;
+				circlePtr[index++] = maxRadius;
+			} else {
+				circlePtr[index++] = -1;
+				circlePtr[index++] = -1;
+				circlePtr[index++] = -1;
+			}
+		}
 
 		// Store vertex points in output
-		int index = 0;
-		for (const auto &p : result.first)
 		{
-			outputPtr[index++] = p.first;
-			outputPtr[index++] = p.second;
-		}
+			int index = 0;
+			for (const auto &p : voronoi_edges)
+			{
+				voronoiPtr[index++] = p.first.x;
+				voronoiPtr[index++] = p.first.y;
+				voronoiPtr[index++] = p.second.x;
+				voronoiPtr[index++] = p.second.y;
+			}
 
-		// Store edge points in output
-		for (const auto &p : result.second)
-		{
-			outputPtr[index++] = p.first;
-			outputPtr[index++] = p.second;
-		}
+			index = 0;
+			for (const auto &p : delaunay_edges)
+			{
+				delaunayPtr[index++] = p.first.x;
+				delaunayPtr[index++] = p.first.y;
+				delaunayPtr[index++] = p.second.x;
+				delaunayPtr[index++] = p.second.y;
+			}
 
-		// return the length of the output array
-		return index;
+			*voronoiSize = voronoi_edges.size() * 4;
+			*delaunaySize = delaunay_edges.size() * 4;
+		}
 	}
-
-	int chull(double *inputPtr, int inputLen, double *outputPtr)
-	{
-		vector<Point> points;
-		for (int i = 0; i < inputLen; i += 2)
-		{
-			points.push_back({static_cast<double>(inputPtr[i]), static_cast<double>(inputPtr[i + 1])});
-		}
-
-		auto hull = convexHull(points.data(), points.size());
-
-		int index = 0;
-		for (const auto &p : hull)
-		{
-			outputPtr[index++] = p.first;
-			outputPtr[index++] = p.second;
-		}
-
-		return index;
-	}
-}
-
-int main()
-{
-	vector<pdd> input;
-	input.push_back(pdd(-162, 73));
-	input.push_back(pdd(126, -80));
-
-	auto [us, vs] = calcvor(input);
-
-	Point points[] = {{0, 3}, {1, 1}, {2, 2}, {4, 4}, {0, 0}, {1, 2}, {3, 1}, {3, 3}};
-	int n = sizeof(points) / sizeof(points[0]);
-	vector<pdd> hull = convexHull(points, n);
-	for (auto p : hull)
-	{
-		cout << "(" << p.first << ", " << p.second << ")" << endl;
-	}
-	return 0;
 }

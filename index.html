@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <title>Voronoi Diagram</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="voronoi.js"></script>
   </head>
-
   <body>
     <div class="flex flex-col min-h-screen">
       <nav
@@ -26,9 +26,6 @@
       <div class="h-full px-24 flex-grow my-20">
         <div class="flex flex-col gap-4 justify-center items-center mt-10">
           <h1 class="text-[52px] font-semibold">Voronoi Fortune Algorithm</h1>
-          <div class="h-[60px]">
-            <h1 id="typewriter" class="text-[32px] font-semibold"></h1>
-          </div>
           <canvas
             id="voronoiCanvas"
             width="800"
@@ -49,55 +46,177 @@
           >
             Clear Canvas
           </button>
+          <button
+            onclick="handleAnimation()"
+            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
+          >
+            Play
+          </button>
+          <!-- <button
+            onclick="speedUpAnimation()"
+            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
+          >
+            Speed Up
+          </button>
+          <button
+            onclick="slowDownAnimation()"
+            class="bg-[#ffc000] text-black px-4 py-2 rounded ml-2"
+          >
+            Slow Down
+          </button> -->
+          <div
+            id="pointInputModal"
+            class="hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <div class="bg-white p-6 rounded-lg w-96">
+              <h2 class="text-xl font-semibold mb-4">
+                Please Input Points min 2 first!
+              </h2>
+
+              <div class="flex justify-end mt-4 gap-2">
+                <button
+                  onclick="closeModal()"
+                  class="bg-gray-300 px-4 py-2 rounded"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <script>
-      const words = ["Pikatan Arya Bramajati", "Arvin", "Venedict Chen"];
-      let i = 0;
-      let j = 0;
-      let currentWord = words[i];
-      let isDeleting = false;
-
-      function type() {
-        if (isDeleting) {
-          document.getElementById("typewriter").textContent =
-            currentWord.substring(0, j - 1);
-          j--;
-          if (j == 0) {
-            isDeleting = false;
-            i = (i + 1) % words.length;
-            currentWord = words[i];
-          }
-        } else {
-          document.getElementById("typewriter").textContent =
-            currentWord.substring(0, j + 1);
-          j++;
-          if (j == currentWord.length) {
-            isDeleting = true;
-          }
-        }
-        setTimeout(type, 80);
-      }
-      type();
-    </script>
-
-    <script>
       const canvas = document.getElementById("voronoiCanvas");
       const ctx = canvas.getContext("2d");
+
       let points = [];
+      let lastClickedPoint = null;
+      let doubleClickTimeout = null;
+      let mouseX = 0;
+      let mouseY = 0;
+      let dragging = false;
+      let draggedPoint = null;
+      let animationSpeed = 0.6;
+      let minSpeed = 0.5;
+      let maxSpeed = 5;
 
-      canvas.addEventListener("click", (e) => {
+      const DOUBLE_CLICK_TIME = 300;
+
+      let sweepLineY = 0;
+      let animationRunning = false;
+
+      const showModal = () => {
+        const modal = document.getElementById("pointInputModal");
+        modal.classList.remove("hidden");
+      };
+
+      const closeModal = () => {
+        const modal = document.getElementById("pointInputModal");
+        modal.classList.add("hidden");
+      };
+
+      const drawSweepLine = (y) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        points.forEach((point) => {
+          drawPoint(point.x, point.y);
+        });
+
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      };
+
+      const animateSweepLine = () => {
+        if (!animationRunning) return;
+
+        drawSweepLine(sweepLineY);
+
+        sweepLineY += animationSpeed;
+
+        if (sweepLineY <= canvas.height) {
+          requestAnimationFrame(animateSweepLine);
+        } else {
+          animationRunning = false;
+        }
+      };
+
+
+      // const speedUpAnimation = () => {
+      //   if (animationSpeed < maxSpeed) {
+      //     animationSpeed += 0.2;
+      //   }
+      // };
+
+      // const slowDownAnimation = () => {
+      //   if (animationSpeed > minSpeed) {
+      //     animationSpeed -= 0.2;
+      //   }
+      // };
+
+      const handleAnimation = () => {
+        if (points.length === 0) {
+          showModal();
+          return;
+        }
+        if (!animationRunning) {
+          sweepLineY = 0;
+          animationRunning = true;
+          animateSweepLine();
+        }
+      };
+
+      canvas.addEventListener("mousedown", (e) => {
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        points.push({ x, y });
+        mouseX = e.clientX - rect.left;
+        mouseY = rect.bottom - e.clientY;
 
-        console.log("Point added by click:", { x, y });
+        const clickedPointIndex = points.findIndex((point) => {
+          const distance = Math.hypot(point.x - mouseX, point.y - mouseY);
+          return distance < 10;
+        });
 
-        drawPoint(x, y);
+        if (clickedPointIndex !== -1) {
+          // Double-click
+          if (lastClickedPoint === clickedPointIndex) {
+            clearTimeout(doubleClickTimeout);
+            points.splice(clickedPointIndex, 1);
+            lastClickedPoint = null;
+            draggedPoint = null;
+          } else {
+            lastClickedPoint = clickedPointIndex;
+            doubleClickTimeout = setTimeout(() => {
+              lastClickedPoint = null;
+            }, DOUBLE_CLICK_TIME);
+            dragging = true;
+            draggedPoint = points[clickedPointIndex];
+          }
+        } else {
+          points.push({ x: mouseX, y: mouseY });
+        }
+
         drawVoronoi();
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (dragging && draggedPoint) {
+          const rect = canvas.getBoundingClientRect();
+          draggedPoint.x = e.clientX - rect.left;
+          draggedPoint.y = rect.bottom - e.clientY;
+          setTimeout(() => {
+            drawVoronoi();
+          }, 100);
+        }
+      });
+
+      canvas.addEventListener("mouseup", () => {
+        dragging = false;
+        draggedPoint = null;
       });
 
       document
@@ -127,10 +246,33 @@
         });
 
       function drawPoint(x, y) {
+        const rect = canvas.getBoundingClientRect();
         ctx.fillStyle = "black";
         ctx.beginPath();
-        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.arc(x, rect.height - y, 5, 0, 2 * Math.PI);
         ctx.fill();
+      }
+
+      function drawLine(x1, y1, x2, y2, color = "black") {
+        const rect = canvas.getBoundingClientRect();
+        y1 = rect.height - y1;
+        y2 = rect.height - y2;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      
+      function drawCircle(x, y, radius) {
+        const rect = canvas.getBoundingClientRect();
+        ctx.beginPath();
+        //param: x,y,radius,startAngle,endAngle,optional: boolean counterclock
+        ctx.arc(x, rect.height - y, radius, 40, 0, 2 * Math.PI);
+        ctx.strokeStyle = "green";
+        ctx.stroke();
       }
 
       function clearCanvas() {
@@ -138,7 +280,97 @@
         points = [];
       }
 
-      function drawVoronoi() {}
+      function drawVoronoi() {
+        if (!Module) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const rect = canvas.getBoundingClientRect();
+        const pointsData = points.map((p) => [p.x, p.y]);
+
+        for (let i = 0; i < pointsData.length; i++) {
+          drawPoint(pointsData[i][0], pointsData[i][1]);
+          // console.log(pointsData[i][0], pointsData[i][1]);
+        }
+
+        const inputPtr = Module._malloc(pointsData.length * 32 * 8);
+        Module.HEAPF64.set(new Float64Array(pointsData.flat()), inputPtr / 8);
+
+        const voronoiPtr = Module._malloc(pointsData.length * 32 * 8);
+        const delaunayPtr = Module._malloc(pointsData.length * 32 * 8);
+        const circlePtr = Module._malloc(4 * 8);
+
+        const voronoiSizePtr = Module._malloc(4); // 4 bytes for an int
+        const delaunaySizePtr = Module._malloc(4); // 4 bytes for an int
+
+        Module._generate_voronoi_and_delaunay(
+            pointsData.length,
+            inputPtr,
+            voronoiPtr,
+            delaunayPtr,
+            circlePtr,
+            voronoiSizePtr,
+            delaunaySizePtr
+        );
+
+        const voronoiSize = Module.HEAP32[voronoiSizePtr / 4]; // Read int value
+        const delaunaySize = Module.HEAP32[delaunaySizePtr / 4]; // Read int value
+
+        // console.log("Voronoi Size:", voronoiSize);
+        // console.log("Delaunay Size:", delaunaySize);
+
+        const voronoiData = new Float64Array(
+            Module.HEAPF64.buffer,
+            voronoiPtr,
+            voronoiSize
+        );
+        const delaunayData = new Float64Array(
+            Module.HEAPF64.buffer,
+            delaunayPtr,
+            delaunaySize
+        );
+        const circleData = new Float64Array(
+            Module.HEAPF64.buffer,
+            circlePtr,
+            3
+        );
+
+        // console.log("Voronoi diagram output:", voronoiData);
+        // console.log("Delaunay triangulation output:", delaunayData);
+
+        for (let i = 0; i < voronoiSize; i += 4) {
+          drawLine(
+            voronoiData[i],
+            voronoiData[i+1],
+            voronoiData[i+2],
+            voronoiData[i+3],
+          )
+        }
+
+        for (let i = 0; i < delaunaySize; i += 4) {
+          drawLine(
+            delaunayData[i],
+            delaunayData[i+1],
+            delaunayData[i+2],
+            delaunayData[i+3],
+            "red"
+          )
+        }
+        
+        if (circleData[0] != -1) {
+          drawCircle(
+            circleData[0],
+            circleData[1],
+            circleData[2],
+          );
+        }
+        
+        Module._free(inputPtr);
+        Module._free(voronoiPtr);
+        Module._free(delaunayPtr);
+        Module._free(voronoiSizePtr);
+        Module._free(delaunaySizePtr);
+      }
     </script>
   </body>
 </html>
