@@ -57,6 +57,7 @@
     </div>
 
   <script>
+    // Typewriting Effect
     const words = ["Pikatan Arya Bramajati", "Arvin", "Venedict Chen"];
     let i = 0;
     let j = 0;
@@ -86,9 +87,11 @@
 
 
     <script>
+      // Initialize Canvas
       const canvas = document.getElementById("voronoiCanvas");
       const ctx = canvas.getContext("2d");
 
+      // Initialize Variable
       let points = [];
       let lastClickedPoint = null;
       let doubleClickTimeout = null;
@@ -97,8 +100,10 @@
       let dragging = false;
       let draggedPoint = null;
 
+      // Double click timeout to detect delete
       const DOUBLE_CLICK_TIME = 300;
 
+      // Input point
       canvas.addEventListener("mousedown", (e) => {
         const rect = canvas.getBoundingClientRect();
         mouseX = e.clientX - rect.left;
@@ -133,6 +138,7 @@
         drawVoronoi();
       });
 
+      // Point Drag
       canvas.addEventListener("mousemove", (e) => {
         if (dragging && draggedPoint) {
           const rect = canvas.getBoundingClientRect();
@@ -144,11 +150,13 @@
         }
       });
 
+      // Drag Done
       canvas.addEventListener("mouseup", () => {
         dragging = false;
         draggedPoint = null;
       });
 
+      // Handling input file
       document
         .getElementById("fileInput")
         .addEventListener("change", (event) => {
@@ -173,6 +181,7 @@
           }
         });
 
+      
       function drawPoint(x, y) {
         const rect = canvas.getBoundingClientRect();
         ctx.fillStyle = "black";
@@ -221,6 +230,7 @@
           // console.log(pointsData[i][0], pointsData[i][1]);
         }
 
+        // Setup Pointer to communicate with C++ in wasm
         const inputPtr = Module._malloc(pointsData.length * 32 * 8);
         Module.HEAPF64.set(new Float64Array(pointsData.flat()), inputPtr / 8);
 
@@ -292,7 +302,7 @@
             circleData[2],
           );
         }
-        
+        // Free Memory
         Module._free(inputPtr);
         Module._free(voronoiPtr);
         Module._free(delaunayPtr);
