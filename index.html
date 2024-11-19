@@ -205,10 +205,10 @@
       
       function drawCircle(x, y, radius) {
         const rect = canvas.getBoundingClientRect();
+        ctx.strokeStyle = "green";
         ctx.beginPath();
         //param: x,y,radius,startAngle,endAngle,optional: boolean counterclock
         ctx.arc(x, rect.height - y, radius, 40, 0, 2 * Math.PI);
-        ctx.strokeStyle = "green";
         ctx.stroke();
       }
 
